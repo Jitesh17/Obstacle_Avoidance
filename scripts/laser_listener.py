@@ -11,7 +11,7 @@ from itertools import *
 from operator import itemgetter
 
 LINX = 0.0 #Always forward linear velocity.
-THRESHOLD = 4 #THRESHOLD value for laser scan.
+THRESHOLD = 3 #THRESHOLD value for laser scan.
 PI = math.pi
 Kp = 0.05
 angz = 0
@@ -21,6 +21,8 @@ def sigmoid(x):
     return y
 
 def LaserScanProcess(data):
+    global LINX
+    global angz
     range_angels = np.arange(len(data.ranges)) #0-511
     range_values = np.array(data.ranges)
     #print(ranges)
@@ -32,7 +34,7 @@ def LaserScanProcess(data):
     ranges = list(range_angels[range_mask])
     
     range_values = range_values
-    max_gap = 40#40
+    max_gap = 20#40
     #print(range_angels)
     #print(range_mask)
     #print(ranges)
@@ -42,15 +44,19 @@ def LaserScanProcess(data):
         gap_list.append(map(itemgetter(1), g))
     #gap_list.sort(key=len)
     #largest_gap = gap_list[-1]
-    mid_gap = gap_list[int(math.floor(len(gap_list)/2))]
-    largest_gap = mid_gap
-    print(math.floor(len(gap_list)/2))
-    #print(largest_gap)
-    min_angle, max_angle = largest_gap[0]*((data.angle_increment)*180/PI), largest_gap[-1]*((data.angle_increment)*180/PI)
-    #print((data.angle_increment)*180/PI,largest_gap[0],largest_gap[-1])
-    average_gap = (max_angle - min_angle)/2
-
-    turn_angle = min_angle + average_gap
+    for path in range(len(gap_list)):  
+        mid_gap = gap_list[int(math.floor(len(gap_list)/2))]
+        largest_gap = mid_gap
+        print(math.floor(len(gap_list)/2))
+        #print(largest_gap)
+        min_angle, max_angle = largest_gap[0]*((data.angle_increment)*180/PI), largest_gap[-1]*((data.angle_increment)*180/PI)
+        #print((data.angle_increment)*180/PI,largest_gap[0],largest_gap[-1])
+        average_gap = (max_angle - min_angle)/2
+        turn_angle = min_angle + average_gap
+        if (average_gap < max_gap): #this path is small
+            del gap_list[int(math.floor(len(gap_list)/2))]
+        else:
+            break
        
     #print 'min angle=' ,min_angle, 'max angle=', max_angle
     #print max_gap,'gap/2=',average_gap,'turn angle= ',90.00020822390628-turn_angle
@@ -90,8 +96,6 @@ def LaserScanProcess(data):
     
     #######################
     #print (average_gap)
-    global LINX
-    global angz
     if average_gap < max_gap:   # path block
         angz = -0.5 #*random.choice([-1, 1])
         #y = data.ranges[len(data.ranges)/2]
