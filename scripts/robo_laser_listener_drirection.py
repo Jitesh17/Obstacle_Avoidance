@@ -4,7 +4,7 @@ import numpy as np
 import rospy
 import sensor_msgs.msg
 from std_msgs.msg import Float32
-# Parameters
+
 PI = math.pi
 Kp = 1
 max_angle = 30
@@ -90,7 +90,7 @@ def LaserScanProcess(data):
     mid_check = 0
     # near = False
     # mid = False
-    # free = False
+    free = False
     stop = False
     mid_line = int(len(data.ranges)/2)
     # increaseBy = data.angle_increment*180/PI
@@ -98,10 +98,10 @@ def LaserScanProcess(data):
     ranges[np.isnan(ranges)] = 0.
     ranges[np.isinf(ranges)] = 10.
     np.warnings.filterwarnings('ignore')
-    # #########~~~~~~~Time~~~~~~~##############----------------------------------
+    # #########~~~~~~~Time~~~~~~~##############
     if start != 0:
         duration = (start - rospy.Time.now()).to_sec()
-    carry_dir = carry_dir + (angle * speed * duration)
+    carry_dir = carry_dir + (-angle * speed * duration)
     if carry_dir > 0:
         direct = 1
     elif carry_dir < 0:
@@ -133,7 +133,7 @@ def LaserScanProcess(data):
                 # mid = True
                 # break
         if mid_check > 2 * mid_arc_line * 0.2:
-            angle = changeAngle(angle, -direct * 30, 3)
+            angle = changeAngle(angle, direct * 30, 3)
             speed = changeSpeed(speed, max_speed/2, 5)
             # carry_dir = angle * speed
             print("Obstacle ahead")
@@ -141,7 +141,7 @@ def LaserScanProcess(data):
             if -100 < carry_dir < 100:
                 angle = changeAngle(angle, 0, 1)
             else:
-                angle = changeAngle(angle, direct * 30, 0.5)
+                angle = changeAngle(angle, -direct * 30, 0.5)
             speed = changeSpeed(speed, max_speed, 10)
             print("It's a free world")
     if stop:
@@ -167,7 +167,7 @@ def main():
         msg_angle = angle
         msg_speed = speed
         robo_angle_pub.publish(msg_angle)
-        #robo_speed_pub.publish(msg_speed)
+        robo_speed_pub.publish(msg_speed)
         rate.sleep()
 
 
