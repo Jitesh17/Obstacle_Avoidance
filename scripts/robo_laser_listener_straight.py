@@ -15,9 +15,10 @@ far_arc_angle = 2
 near_threshold = 0.3
 mid_threshold = 0.8
 far_threshold = 5
-start = rospy.Time.now()
+start = 0  # rospy.Time.now()
+duration = 0.
 direction = 0
-carry_dir = 0
+carry_dir = 0.
 # near_threshold = 2  # 0.3
 # mid_threshold = 4
 # far_threshold = 5
@@ -30,15 +31,16 @@ def sigmoid(x):
 
 
 def distanceAt(range_angle, dr):
-    n = (range_angle - 90) / 180 * len(dr)
-    d = dr[int(n)]
+    # n = (range_angle - 90) / 180 * len(dr)
+    # d = dr[int(n)]
+    d = dr[range_angle]
     return d
 
 
 def changeAngle(current_angle, destination_angle, change_rate):
     global new_angle
     if current_angle - destination_angle > 15:
-        change_rate = change_rate*3  #
+        change_rate = change_rate * 3  #
     if destination_angle - (change_rate + 2) < current_angle < destination_angle + (change_rate + 2):
         new_angle = current_angle
         # if destination_angle == 0:
@@ -67,7 +69,7 @@ def changeSpeed(current_speed, destination_speed, change_rate):
     elif current_speed < destination_speed:
         new_speed = current_speed + change_rate
     elif current_speed > destination_speed:
-        new_speed = current_speed - change_rate*2
+        new_speed = current_speed - change_rate * 2
     if current_speed < destination_speed + (change_rate + 2) and angle > destination_speed - (change_rate + 2):
         new_speed = current_speed
     if new_speed < 6:
@@ -78,44 +80,70 @@ def changeSpeed(current_speed, destination_speed, change_rate):
 
 
 def LaserScanProcess(data):
+    global start
+    global duration
+    global carry_dir
     global angle
     global speed
     global direct
-    near = False
-    mid = False
+    near_check = 0
+    mid_check = 0
+    # near = False
+    # mid = False
     free = False
     stop = False
+    mid_line = int(len(data.ranges)/2)
+    # increaseBy = data.angle_increment*180/PI
     ranges = np.array(data.ranges)
     ranges[np.isnan(ranges)] = 0.
     ranges[np.isinf(ranges)] = 10.
     np.warnings.filterwarnings('ignore')
-    ########################
-    print(distanceAt(0, ranges))
-    for line_n in range(-near_arc_angle, near_arc_angle):
-        if distanceAt(line_n, ranges) < near_threshold:
-            near = True
-            break
-    if near:
+    # #########~~~~~~~Time~~~~~~~##############
+    if start != 0:
+        duration = (start - rospy.Time.now()).to_sec()
+    carry_dir = carry_dir + (-angle * speed * duration)
+    if carry_dir > 0:
+        direct = 1
+    elif carry_dir < 0:
+        direct = -1
+    start = rospy.Time.now()
+    print(data.ranges[mid_line])
+    print("carry_dir", carry_dir)
+    ##########################################
+    # scan_lines = np.arange(len(data.ranges))
+    # print("mid_line",mid_line)
+    near_arc_line = int(len(data.ranges) * near_arc_angle / 180)
+    mid_arc_line = int(len(data.ranges) * mid_arc_angle / 180)
+    for line_n in range(mid_line - near_arc_line, mid_line + near_arc_line):
+        # print("near = ", line_n)
+        if data.ranges[line_n] < near_threshold:
+            near_check = near_check+1
+            # near = True
+            # break
+    if near_check > 2 * near_arc_line * 0.2:
         angle = changeAngle(angle, 0, 1)
         speed = changeSpeed(speed, 0, 1)
-        # carry_dir = angle * speed
+
         print("I'm blocked")
     else:
-        for line_m in range(-mid_arc_angle, mid_arc_angle):
-            if distanceAt(line_m, ranges) < mid_threshold:
-                mid = True
-                break
-    if mid:
-        angle = changeAngle(angle, 30, 3)
-        speed = changeSpeed(speed, direct * 50, 5)
-        # carry_dir = angle * speed
-        print("Obstacle ahead")
-    elif not near:
-        free = True
-    if free:
-        angle = changeAngle(angle, 0, 1)
-        speed = changeSpeed(speed, max_speed, 10)
-        print("It's a free world")
+        for line_m in range(mid_line - mid_arc_line, mid_line + mid_arc_line):
+            # print("mid  = ", line_m)
+            if data.ranges[line_m] < mid_threshold:
+                mid_check = mid_check + 1
+                # mid = True
+                # break
+        if mid_check > 2 * mid_arc_line * 0.2:
+            angle = changeAngle(angle, direct * 30, 3)
+            speed = changeSpeed(speed, max_speed/2, 5)
+            # carry_dir = angle * speed
+            print("Obstacle ahead")
+        else:
+            if -50 < carry_dir < 0:
+                angle = changeAngle(angle, 0, 1)
+            else:
+                angle = changeAngle(angle, -direct * 30, 1)
+            speed = changeSpeed(speed, max_speed, 10)
+            print("It's a free world")
     if stop:
         angle = changeAngle(angle, 0, 1)
         speed = changeSpeed(speed, 0, 5)
