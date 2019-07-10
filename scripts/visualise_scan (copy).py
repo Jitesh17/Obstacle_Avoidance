@@ -35,10 +35,10 @@ def callback(data):
         x = math.trunc((r * 2 * size) * math.cos(angle + (-90 * pi / 180)))
         y = math.trunc((r * 2 * size) * math.sin(angle + (-90 * pi / 180)))
         # x = -x
-        way_m = 18
+        way_m = 9
         way_n = 25
         thres_m = 0.8
-        thres_n = 0.25
+        thres_n = 0.3
         if r>thres_m:
             thres_mx = math.trunc((thres_m * 2 * size) * math.cos(angle + (-90 * pi / 180)))
             thres_my = math.trunc((thres_m * 2 * size) * math.sin(angle + (-90 * pi / 180)))

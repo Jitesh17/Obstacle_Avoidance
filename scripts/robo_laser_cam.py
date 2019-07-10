@@ -4,11 +4,12 @@ import numpy as np
 import rospy
 import sensor_msgs.msg
 from std_msgs.msg import Float32
+from avoid_obstacles.msg import BoundingBoxes
 # Parameters
 PI = math.pi
 Kp = 1
 max_angle = 30
-max_speed = 300
+max_speed = 200
 near_arc_angle = 25
 mid_arc_angle = 15  # 9
 far_arc_angle = 2
@@ -25,6 +26,7 @@ carry_angle = 0
 # mid_threshold = 4
 # far_threshold = 5
 direct = 1
+stop = False
 
 
 def sigmoid(x):
@@ -110,6 +112,7 @@ def changeSpeed(current_speed, destination_speed, change_rate):
 
 def LaserScanProcess(data):
     global start
+    global stop
     global duration
     global carry_dir
     global angle
@@ -122,7 +125,6 @@ def LaserScanProcess(data):
     # near = False
     # mid = False
     # free = False
-    stop = False
     mid_line = int(len(data.ranges)/2)
     # increaseBy = data.angle_increment*180/PI
     ranges = np.array(data.ranges)
@@ -179,12 +181,12 @@ def LaserScanProcess(data):
         if mid_check > 2 * mid_arc_line * 0.2:
             if mid_left_check < mid_right_check-5:
                 direct = -1
-                print("      -1       ", mid_left_check, mid_right_check)
+                # print("      -1       ", mid_left_check, mid_right_check)
             elif mid_left_check > mid_right_check+5:
                 direct = 1
-                print("      1       ", mid_left_check, mid_right_check)
+                # print("      1       ", mid_left_check, mid_right_check)
             else:
-                print("                                sum                                ",left_sum, right_sum)
+                # print("                                sum                                ",left_sum, right_sum)
                 if left_sum < right_sum:
                     direct = 1
                 else:
@@ -210,23 +212,48 @@ def LaserScanProcess(data):
         print("Stop")
 
 
+def camera(data):
+    global stop, prob, y_max
+    stop = False
+    num = len(data.bounding_boxes)
+    real_y_max = 0
+    for i in range(0, num):
+        # b = "stop sign"
+        c = "bottle"
+        m = data.bounding_boxes[i].class_name
+        if m == c:  # or m == b:  # data.bounding_boxes[i].ymax < 400 and
+            # Class_name = data.bounding_boxes[i].class_name
+            prob = data.bounding_boxes[i].probability
+            # x_min = data.bounding_boxes[i].xmin
+            # x_max = data.bounding_boxes[i].xmax
+            # y_min = data.bounding_boxes[i].ymin
+            y_max = data.bounding_boxes[i].ymax
+            print(y_max)
+            if real_y_max < y_max and prob > 0.4:  # and Class_name != "chair"
+                real_y_max = y_max
+    if real_y_max > 100:
+        stop = True
+
+
 def main():
     global angle
     global speed
+    global stop, y_max
     angle = 0.0
     speed = 0.0
     rospy.init_node('listener', anonymous=True)
 
-    robo_angle_pub = rospy.Publisher('robo_angle', Float32, queue_size=1000)
-    robo_speed_pub = rospy.Publisher('robo_speed', Float32, queue_size=1000)
+    robo_angle_pub = rospy.Publisher('robo_angle', Float32, queue_size=10)
+    robo_speed_pub = rospy.Publisher('robo_speed', Float32, queue_size=10)
     rospy.Subscriber("scan", sensor_msgs.msg.LaserScan, LaserScanProcess)
+    rospy.Subscriber("/darknet_ros/bounding_boxes", BoundingBoxes, camera)
 
-    rate = rospy.Rate(10)  # 10hz
+    rate = rospy.Rate(1)  # 10hz
 
     while not rospy.is_shutdown():
         msg_angle = angle
         msg_speed = speed
-        print("                                s =", speed, "a =", angle)
+        print("                                s =", speed, "a =", angle, stop, )
         robo_angle_pub.publish(msg_angle)
         robo_speed_pub.publish(msg_speed)
         rate.sleep()
