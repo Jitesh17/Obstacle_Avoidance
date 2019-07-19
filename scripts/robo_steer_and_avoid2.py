@@ -1,21 +1,23 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import math
 import numpy as np
 import rospy
 import sensor_msgs.msg
 from std_msgs.msg import Float32
+from message_filters import ApproximateTimeSynchronizer, Subscriber
+
 # Parameters
 PI = math.pi
 Kp = 1
 max_angle = 30
 max_speed = 300
 near_arc_angle = 25
-mid_arc_angle = 15  # 9
+mid_arc_angle = 20  # 15  # 9
 far_arc_angle = 2
 near_threshold = 0.25
 mid_threshold = 0.8
 far_threshold = 5
-start = 0  # rospy.Time.now()
+start = 0
 duration = 0.
 direction = 0
 carry_dir = 0.
@@ -25,37 +27,14 @@ carry_angle = 0
 # mid_threshold = 4
 # far_threshold = 5
 direct = 1
+angle = 0.0
+anglep = 0.0
+speed = 0.0
 
 
 def sigmoid(x):
     y = 1 / (1 + np.exp(-x))
     return y
-
-
-def distanceAt(range_angle, dr):
-    # n = (range_angle - 90) / 180 * len(dr)
-    # d = dr[int(n)]
-    d = dr[range_angle]
-    return d
-
-
-def changeAngleSmooth(current_angle, destination_angle, change_rate):
-    global new_angle
-    # if current_angle - destination_angle > 15:
-    #     change_rate = change_rate * 2  #
-    if destination_angle - (change_rate + 2) < current_angle < destination_angle + (change_rate + 2):
-        new_angle = current_angle
-        if destination_angle == 0:
-            new_angle = 0
-    elif current_angle < destination_angle:
-        new_angle = (1 - change_rate) * current_angle + change_rate * destination_angle
-    elif current_angle > destination_angle:
-        new_angle = (1 - change_rate) * current_angle - change_rate * destination_angle
-    if new_angle < -max_angle:
-        new_angle = -max_angle
-    if new_angle > max_angle:
-        new_angle = max_angle
-    return new_angle
 
 
 def changeAngle(current_angle, destination_angle, change_rate):
@@ -108,11 +87,17 @@ def changeSpeed(current_speed, destination_speed, change_rate):
     return new_speed
 
 
-def LaserScanProcess(data):
+def pilot(steer):
+    global anglep
+    anglep = steer.data
+
+
+def avoid(data):
     global start
     global duration
     global carry_dir
     global angle
+    global anglep
     global speed
     global direct
     near_check = 0
@@ -122,8 +107,8 @@ def LaserScanProcess(data):
     # near = False
     # mid = False
     # free = False
-    stop = False
-    mid_line = int(len(data.ranges)/2)
+    # stop = False
+    mid_line = int(len(data.ranges) / 2)
     # increaseBy = data.angle_increment*180/PI
     ranges = np.array(data.ranges)
     ranges[np.isnan(ranges)] = 0.
@@ -147,8 +132,8 @@ def LaserScanProcess(data):
     # print("mid_line",mid_line)
     near_arc_line = int(len(ranges) * near_arc_angle / 180)
     mid_arc_line = int(len(ranges) * mid_arc_angle / 180)
-    left_sum = np.sum(ranges[0:int(len(ranges)/2)])
-    right_sum = np.sum(ranges[int(len(ranges)/2):len(ranges)])
+    left_sum = np.sum(ranges[0:int(len(ranges) / 2)])
+    right_sum = np.sum(ranges[int(len(ranges) / 2):len(ranges)])
     if left_sum < right_sum:
         direct = 1
     else:
@@ -156,7 +141,7 @@ def LaserScanProcess(data):
     for line_n in range(mid_line - near_arc_line, mid_line + near_arc_line):
         # print("near = ", line_n)
         if ranges[line_n] < near_threshold:
-            near_check = near_check+1
+            near_check = near_check + 1
             # near = True
             # break
     if near_check > 2 * near_arc_line * 0.1:  # if near arc line is blocked by more than 10%
@@ -177,50 +162,45 @@ def LaserScanProcess(data):
                 # mid = True
                 # break
         if mid_check > 2 * mid_arc_line * 0.2:
-            if mid_left_check < mid_right_check-5:
+            if mid_left_check < mid_right_check - 5:
                 direct = -1
                 print("      -1       ", mid_left_check, mid_right_check)
-            elif mid_left_check > mid_right_check+5:
+            elif mid_left_check > mid_right_check + 5:
                 direct = 1
                 print("      1       ", mid_left_check, mid_right_check)
             else:
-                print("                                sum                                ",left_sum, right_sum)
+                print("                                sum                                ", left_sum, right_sum)
                 if left_sum < right_sum:
                     direct = 1
                 else:
                     direct = -1
-            angle = changeAngle(angle, direct * 30, 3)
+            angle =  changeAngle(angle, direct * 30, 3)  #direct * 30
             # angle = changeAngleSmooth(angle, -direct * 30, 0.1)
-            speed = changeSpeed(speed, max_speed/2, 5)
+            speed = changeSpeed(speed, max_speed / 2, 5)
             # carry_dir = angle * speed
             print("Obstacle ahead")
             ##########################################################################################
         else:
-            # if -100 < carry_dir < 100:
-            #     angle = changeAngle(angle, 0, 1)
-            # else:
-            #     angle = changeAngle(angle, direct * 30, 0.5)
-            # angle = changeAngleSmooth(angle, 0, 0.4)
-            angle = changeAngle(angle, 0, 0.4)
-            speed = changeSpeed(speed, max_speed, 10)
+            rospy.Subscriber("/Steering_Angel", Float32, pilot)
+            angle = anglep  # changeAngle(steer, 0, 0.4)
+            speed = changeSpeed(speed, max_speed/2, 10)
             print("It's a free world")
         ##########################################################################################
-    if stop:
-        angle = changeAngle(angle, 0, 1)
-        speed = changeSpeed(speed, 0, 5)
-        print("Stop")
+    # if stop:
+    #     angle = changeAngle(angle, 0, 1)
+    #     speed = changeSpeed(speed, 0, 5)
+    #     print("Stop")
 
 
 def main():
     global angle
     global speed
-    angle = 0.0
-    speed = 0.0
+
     rospy.init_node('listener', anonymous=True)
 
     robo_angle_pub = rospy.Publisher('robo_angle', Float32, queue_size=10)
     robo_speed_pub = rospy.Publisher('robo_speed', Float32, queue_size=10)
-    rospy.Subscriber("scan", sensor_msgs.msg.LaserScan, LaserScanProcess)
+    rospy.Subscriber("scan", sensor_msgs.msg.LaserScan, avoid)
 
     rate = rospy.Rate(10)  # 10hz
 
@@ -228,6 +208,7 @@ def main():
         msg_angle = angle
         msg_speed = speed
         print("                                s =", speed, "a =", angle)
+
         robo_angle_pub.publish(msg_angle)
         robo_speed_pub.publish(msg_speed)
         rate.sleep()
@@ -235,8 +216,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-"""
-        elif False:　#　carry_dir !=0:
-            angle = changeAngle(angle, -direct*30, 1)
-            speed = changeSpeed(speed, -direct*50, 5)
-        """

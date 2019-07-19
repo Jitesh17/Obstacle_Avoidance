@@ -40,7 +40,11 @@ def LaserScanProcess(data):
     # print(ranges)
 
     gap_list = []
-    for k, g in groupby(enumerate(ranges), lambda (i, x): i - x):  # continuos no.
+
+    def function(x, i):
+        return i - x
+
+    for k, g in groupby(enumerate(ranges), function):
         gap_list.append(map(itemgetter(1), g))
     # gap_list.sort(key=len)
     # largest_gap = gap_list[-1]
@@ -49,8 +53,8 @@ def LaserScanProcess(data):
         largest_gap = mid_gap
         print(math.floor(len(gap_list) / 2))
         # print(largest_gap)
-        min_angle, max_angle = largest_gap[0] * ((data.angle_increment) * 180 / PI), largest_gap[-1] * (
-                    (data.angle_increment) * 180 / PI)
+        min_angle, max_angle = largest_gap[0] * (data.angle_increment * 180 / PI), largest_gap[-1] * (
+                data.angle_increment * 180 / PI)
         # print((data.angle_increment)*180/PI,largest_gap[0],largest_gap[-1])
         average_gap = (max_angle - min_angle) / 2
         turn_angle = min_angle + average_gap
@@ -88,8 +92,7 @@ def LaserScanProcess(data):
             line_no = []
         # print(range_values[i])
     if len(objects) > 0:
-        print
-        '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
         for j in range(len(objects)):
             object_line_no = (objects[j][0] + objects[j][-1]) / 2
             # print object_line_no*data.angle_increment*180/PI-90, data.ranges[object_line_no]
@@ -103,23 +106,22 @@ def LaserScanProcess(data):
         angz = -0.5  # *random.choice([-1, 1])
         # y = data.ranges[len(data.ranges)/2]
         y = min(data.ranges)
-        LINX = 0.5 * sigmoid(y)
+        speed = 0.5 * sigmoid(y)
 
         print(angz, "********")
     else:
         angz = Kp * (1) * (90 - turn_angle)
         y = data.ranges[len(data.ranges) / 2]
-        LINX = 2 * 0.5 * sigmoid(y)
+        speed = 2 * 0.5 * sigmoid(y)
     ########################
     """
     field = len(data.ranges)*3/8 #100
     for laser in range(len(data.ranges)/2-field, len(data.ranges)/2+field):
         if (data.ranges[laser]<2):
-            LINX = LINX*0.1
+            speed = speed*0.1
             angz = -0.5"""
     ########################
-    print
-    'angz=', angz, '\nLINX=', LINX, '\nranges=', data.ranges[len(data.ranges) / 2]
+    print('angel=', angz, "\nspeed=", speed, '\nranges=', data.ranges[len(data.ranges) / 2])
     ########################
 
 

@@ -4,6 +4,7 @@ import numpy as np
 import rospy
 import sensor_msgs.msg
 from std_msgs.msg import Float32
+from std_msgs.msg import Float32MultiArray
 # Parameters
 PI = math.pi
 Kp = 1
@@ -21,6 +22,19 @@ direction = 0
 carry_dir = 0.
 carry_speed = 0
 carry_angle = 0
+end = 0
+start1 =0
+end1 =0
+t = 0
+sensor1 =0.0
+sensor2 =0.0
+sensor3 =0.0
+sensor4 =0.0
+sensor5 =0.0
+sensor6 =0.0
+flag =1   #  for timer
+flag2 = 0   # for obstacle detect
+flag3 = 1 # for second timer
 # near_threshold = 2  # 0.3
 # mid_threshold = 4
 # far_threshold = 5
@@ -107,6 +121,22 @@ def changeSpeed(current_speed, destination_speed, change_rate):
         new_speed = max_speed
     return new_speed
 
+def irSensor(sens):
+    global sensor1
+    sensor1 = sens.data[0]
+    global sensor2
+    sensor2 = sens.data[1]
+    global sensor3
+    sensor3 = sens.data[2]
+    global sensor4
+    sensor4 = sens.data[3]
+    global sensor5
+    sensor5 = sens.data[4]
+    global sensor6
+    sensor6 = sens.data[5]
+    print sensor6
+
+
 
 def LaserScanProcess(data):
     global start
@@ -115,6 +145,7 @@ def LaserScanProcess(data):
     global angle
     global speed
     global direct
+    global sensor3
     near_check = 0
     mid_check = 0
     mid_left_check = 0
@@ -189,9 +220,13 @@ def LaserScanProcess(data):
                     direct = 1
                 else:
                     direct = -1
-            angle = changeAngle(angle, direct * 30, 3)
+            flag2 =1
+            angle = direct * 30  # changeAngle(angle, direct * 30, 3)
             # angle = changeAngleSmooth(angle, -direct * 30, 0.1)
             speed = changeSpeed(speed, max_speed/2, 5)
+            if(flag==1):
+                start = rospy.Time.now()
+                flag = 0
             # carry_dir = angle * speed
             print("Obstacle ahead")
             ##########################################################################################
@@ -201,9 +236,57 @@ def LaserScanProcess(data):
             # else:
             #     angle = changeAngle(angle, direct * 30, 0.5)
             # angle = changeAngleSmooth(angle, 0, 0.4)
-            angle = changeAngle(angle, 0, 0.4)
-            speed = changeSpeed(speed, max_speed, 10)
-            print("It's a free world")
+            if(flag2==1):
+                 
+                if (flag==0):
+                    end = rospy.Time.now()
+                    t = end - start
+                    flag = 1
+                angle =   30*direct*(-1)  #changeAngle(angle, 0, 0.4)
+                speed = changeSpeed(speed, max_speed/2, 5)
+                if t < rospy.Time.now() - end:
+                    flag2=2   #2 is better
+                    
+            
+                print("It's start to turn back")
+            elif flag2==2:
+                
+                angle =   changeAngle(angle, 0, 0.4)
+                speed = changeSpeed(speed, max_speed, 10)
+                rospy.Subscriber("irsensor",Float32MultiArray, irSensor)
+                if direct==-1:
+					if sensor3<300&&sensor2>400:
+						flag2=3
+						if(flag3==1):
+                			start1 = rospy.Time.now()
+                			flag3 = 0
+				else:
+					if sensor4<300&&sensor5>400:
+						flag2=3
+						if(flag3==1):
+                			start1 = rospy.Time.now()
+                			flag3 = 0
+
+            elif flag2==3:
+				angle =   30*direct*(-1)  #changeAngle(angle, 0, 0.4)
+                speed = changeSpeed(speed, max_speed/2, 5)
+				if t < rospy.Time.now() - start1:
+                    angle =   30*direct  #changeAngle(angle, 0, 0.4)
+                	speed = changeSpeed(speed, max_speed/2, 5)
+					
+					if 2*t<rospy.Time.now() - start1:
+						flag2=0
+						flag3=1
+            elif flag2==0:
+                angle =   changeAngle(angle, 0, 0.4)
+                speed = changeSpeed(speed, max_speed, 10)
+                
+            
+                print("It's a free world")
+
+
+
+            
         ##########################################################################################
     if stop:
         angle = changeAngle(angle, 0, 1)

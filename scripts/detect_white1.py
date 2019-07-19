@@ -58,7 +58,7 @@ def visualize_lines(f, lines_):
     return lines_visualize_
 
 
-frame = cv2.imread("../Images/2564.jpg")
+frame = cv2.imread("../Images/11.png")
 # frame = cv2.imread("../Images/a.png")
 # frame = cv2.imread("../Images/lane.jpg")
 # print(frame[0,0])
