@@ -65,6 +65,7 @@ cap = cv2.VideoCapture(0)
 ret, frame = cap.read()
 # frame = cv2.imread("../Images/30cm.png")
 while 1:
+    # frame =
     canny = do_canny(frame)
     segment1 = do_segment(canny)
     hough = cv2.HoughLinesP(segment1, 2, np.pi / 180, 100, np.array([]), 100, 50)

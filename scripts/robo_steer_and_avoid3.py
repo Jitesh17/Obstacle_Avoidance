@@ -182,8 +182,11 @@ def avoid(data):
             ##########################################################################################
         else:
             rospy.Subscriber("/Steering_Angel", Float32, pilot)
-            angle = anglep  # changeAngle(steer, 0, 0.4)
-            # angle = changeAngle(angle, anglep, 1 ) # changeAngle(steer, 0, 0.4)
+            if -29 < angle < 29:
+                angle = anglep  # changeAngle(steer, 0, 0.4)
+                print("normal")
+            else:
+                angle = changeAngle(angle, anglep, 1 ) # changeAngle(steer, 0, 0.4)
             speed = changeSpeed(speed, max_speed/2, 10)
             print("It's a free world")
         ##########################################################################################

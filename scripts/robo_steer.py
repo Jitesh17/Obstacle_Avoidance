@@ -33,7 +33,7 @@ def avoid(steer):
     global speed
 
     angle = steer.data  #changeAngle(, 0, 0.4)
-    speed = 80  #changeSpeed(speed, max_speed, 10)
+    speed = 150  #changeSpeed(speed, max_speed, 10)
     print("It's a free world")
     # rospy.Publisher('robo_angle', Float32, queue_size=10)
     # rospy.Publisher('robo_speed', Float32, queue_size=10)
